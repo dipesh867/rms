@@ -1,0 +1,47 @@
+{
+  "name": "restaurant-pos-system",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "homepage": "https://SurajM9823.github.io/rms",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "predeploy": "npm run build && copyfiles -f dist/index.html dist/404.html",
+    "deploy": "gh-pages -d dist"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.3.4",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.2.0",
+    "lucide-react": "^0.344.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.49.3",
+    "react-hot-toast": "^2.4.1",
+    "react-qr-code": "^2.0.12",
+    "react-router-dom": "^6.21.3",
+    "recharts": "^2.10.4",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.17",
+    "copyfiles": "^2.4.1",
+    "dotenv": "^16.4.1",
+    "eslint": "^9.13.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.14",
+    "gh-pages": "^6.3.0",
+    "globals": "^15.11.0",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.1",
+    "typescript": "~5.6.2",
+    "vite": "^5.4.10"
+  }
+}
