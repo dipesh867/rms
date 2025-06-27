@@ -1,15 +1,38 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+
+
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("Email is required")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('status', 'active')
+
+        if not extra_fields.get('is_superuser'):
+            raise ValueError('Superuser must have is_superuser=True.')
+        if not extra_fields.get('is_staff'):
+            raise ValueError('Superuser must have is_staff=True.')
+
+        return self.create_user(email, password, **extra_fields)
 
 
 class User(AbstractUser):
     ROLE_CHOICES = [
-        ('admin', 'System Administrator'),
-        ('owner', 'Restaurant Owner'),
+        ('admin', 'System Administrator'),   # Superuser from createsuperuser
+        ('owner', 'Restaurant Owner'),       # Login via owner portal only
         ('vendor', 'Vendor Partner'),
         ('kitchen', 'Kitchen Staff'),
-        ('staff', 'Restaurant Staff'),
-        ('manager', 'Restaurant Manager'),
+        ('staff', 'Restaurant Staff'),       # Login via staff portal only
+        ('manager', 'Restaurant Manager'),   # Login via manager portal only
     ]
 
     DEPARTMENT_CHOICES = [
@@ -26,32 +49,20 @@ class User(AbstractUser):
         ('active', 'Active'),
         ('inactive', 'Inactive'),
     ]
-    phone=models.CharField(max_length=10)
+
+    username = None  # Remove username
+    email = models.EmailField(unique=True)
+
+    phone = models.CharField(max_length=10)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    department = models.CharField(max_length=50, choices=DEPARTMENT_CHOICES)
+    department = models.CharField(max_length=50, choices=DEPARTMENT_CHOICES, blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     recent_activity = models.TextField(blank=True, null=True)
 
-    def __str__(self):
-        return f"{self.username} ({self.role})"
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []  # Only asks for email + password in createsuperuser
 
-
-class SystemAlert(models.Model):
-    message = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    alert_type = models.CharField(max_length=100, default="General")
-    is_read = models.BooleanField(default=False)
+    objects = UserManager()
 
     def __str__(self):
-        return f"{self.alert_type}: {self.message[:30]}"
-
-
-class ActivityLog(models.Model):
-    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    action = models.CharField(max_length=255)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    description = models.TextField(blank=True)
-
-    def __str__(self):
-        return f"{self.actor} - {self.action} at {self.timestamp}"
-
+        return f"{self.email} ({self.role})"
