@@ -142,7 +142,7 @@ REST_FRAMEWORK = {
 
 
 # # settings.py
-AUTH_USER_MODEL = 'superadmin.User'
+# AUTH_USER_MODEL = 'superadmin.Employee'
 
 
 CORS_ALLOW_ALL_ORIGINS = True  # for development only

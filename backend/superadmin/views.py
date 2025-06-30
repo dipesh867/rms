@@ -3,6 +3,11 @@ from django.db import connections
 from django.db.utils import OperationalError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework import generics
+from .models import Restaurant
+from .serializers import RestaurantSerializer
+from rest_framework.permissions import IsAuthenticated 
+
 
 @api_view(['GET'])
 def system_health_percent(request):
@@ -35,7 +40,8 @@ def system_health_percent(request):
 
     return Response({'system_health_percent': score})
 
+ # Optional: if you want auth
 
-@api_view(['GET'])
-def test_api(request):
-    return Response({'message':'API is working'})
+class RestaurantCreateView(generics.CreateAPIView):
+    queryset = Restaurant.objects.all()
+    serializer_class = RestaurantSerializer

@@ -1,33 +1,34 @@
-# serializers.py
 from rest_framework import serializers
-from django.contrib.auth import authenticate
-from typing import cast
-from .models import User
+from .models import Restaurant, Employee
 
-class RoleBasedLoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-    expected_role = serializers.CharField(write_only=True)
+class EmployeeSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=True, min_length=6)
+    
+    class Meta:
+        model = Employee
+        fields = ['name', 'email', 'phone', 'role', 'password']
 
-    def validate(self, data):
-        email = data.get('email')
-        password = data.get('password')
-        expected_role = data.get('expected_role')
+class RestaurantSerializer(serializers.ModelSerializer):
+    owner = EmployeeSerializer(write_only=True)
 
-        user = authenticate(username=email, password=password)
-        if user is None:
-            raise serializers.ValidationError("Invalid email or password")
+    class Meta:
+        model = Restaurant
+        fields = ['name', 'email', 'address', 'phone', 'owner']
 
-        # Tell type checker this is your custom User with role attribute
-        user = cast(User, user)
-        
-        if user.role != expected_role:
-            raise serializers.ValidationError(
-                f"Access denied: You are '{user.role}', not allowed in the '{expected_role}' portal"
-            )
+    def create(self, validated_data):
+        owner_data = validated_data.pop('owner')
 
-        if user.status != 'active':
-            raise serializers.ValidationError("User is inactive")
+        # Create restaurant first
+        restaurant = Restaurant.objects.create(**validated_data)
 
-        data['user'] = user
-        return data
+        # Create owner employee, assign role and link to restaurant
+        owner = Employee.objects.create(
+            name=owner_data['name'],
+            email=owner_data['email'],
+            role='owner',
+            password=owner_data['password']  # Store password in plain? You may want to hash it!
+        )
+        owner.restaurants.add(restaurant)
+        owner.save()
+
+        return restaurant

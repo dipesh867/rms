@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Store, Mail, Phone, MapPin, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 
 const RegisterRestaurantPage: React.FC = () => {
   const navigate = useNavigate();
@@ -27,39 +28,54 @@ const RegisterRestaurantPage: React.FC = () => {
     return 'light';
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      setIsLoading(true);
-      
-      // Mock successful restaurant registration (frontend only)
-      setTimeout(() => {
-        console.log('Mock restaurant registration:', {
-          restaurant: {
-            name: restaurantName,
-            address: restaurantAddress,
-            phone: restaurantPhone,
-            email: restaurantEmail
-          },
-          owner: {
-            name: ownerName,
-            email: ownerEmail,
-            password: ownerPassword
-          }
-        });
-        
-        toast.success('Restaurant and owner account created successfully');
-        navigate('/admin/dashboard');
-      }, 1500);
-      
-    } catch (error: any) {
-      console.error('Error registering restaurant:', error);
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsLoading(true);
+
+  try {
+    // Prepare payload matching your backend expectations
+    const payload = {
+      restaurant: {
+        name: restaurantName,
+        address: restaurantAddress,
+        phone: restaurantPhone,
+        email: restaurantEmail,
+      },
+      owner: {
+        email: ownerEmail,
+        password: ownerPassword,
+        role: 'owner',        // Important: role must be 'owner' as per backend validation
+        status: 'active',     // Optional, set default active
+        // You can add 'name' if you want backend to accept it, but the model does not have 'name' field, only User's first_name/last_name
+      }
+    };
+
+    // Make API POST call
+    const response = await axios.post(
+      'http://localhost:8000/api/restaurants/',  // Adjust this URL to match your Django REST endpoint
+      payload
+    );
+
+    // Handle success
+    toast.success('Restaurant and owner account created successfully');
+    navigate('/admin/dashboard');
+
+  } catch (error: any) {
+    console.error('Error registering restaurant:', error);
+
+    // If your backend sends error details in response.data
+    if (error.response && error.response.data) {
+      const messages = Object.values(error.response.data).flat().join(' ');
+      toast.error(`Failed: ${messages}`);
+    } else {
       toast.error('Failed to register restaurant');
-    } finally {
-      setIsLoading(false);
     }
-  };
+
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <div className={`min-h-screen py-12 px-4 sm:px-6 ${

@@ -41,7 +41,7 @@ const [adminStats, setAdminStats] = useState({
 useEffect(() => {
   async function fetchSystemHealth() {
     try {
-      const response = await axios.get('http://localhost:8000/a/api/system-health/');
+      const response = await axios.get('http://localhost:8000/api/system-health/');
       const newHealth = response.data.system_health_percent;
       setSystemHealth(newHealth);
       console.log(previousHealth,newHealth)
