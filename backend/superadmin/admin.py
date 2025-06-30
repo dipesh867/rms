@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from .models import Restaurant, Employee
 
 
 class CustomUserAdmin(UserAdmin):
@@ -24,6 +25,23 @@ class CustomUserAdmin(UserAdmin):
             'fields': ('username', 'password1', 'password2', 'email', 'phone', 'role', 'department'),
         }),
     )
+
+
+@admin.register(Restaurant)
+class RestaurantAdmin(admin.ModelAdmin):
+    list_display = ('name', 'email', 'phone', 'address')
+    list_filter = ('name',)
+    search_fields = ('name', 'email', 'phone')
+    ordering = ('name',)
+
+
+@admin.register(Employee)
+class EmployeeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'email', 'role', 'phone')
+    list_filter = ('role',)
+    search_fields = ('name', 'email', 'phone')
+    ordering = ('name',)
+    filter_horizontal = ('restaurants',)
 
 # @admin.register(SystemAlert)
 # class SystemAlertAdmin(admin.ModelAdmin):

@@ -16,6 +16,7 @@ const RegisterRestaurantPage: React.FC = () => {
   // Owner info
   const [ownerName, setOwnerName] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerPhone, setOwnerPhone] = useState('');
   const [ownerPassword, setOwnerPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
@@ -33,40 +34,60 @@ const RegisterRestaurantPage: React.FC = () => {
   setIsLoading(true);
 
   try {
-    // Prepare payload matching your backend expectations
+    // Prepare payload matching the superadmin API expectations
     const payload = {
-      restaurant: {
-        name: restaurantName,
-        address: restaurantAddress,
-        phone: restaurantPhone,
-        email: restaurantEmail,
-      },
+      name: restaurantName,
+      address: restaurantAddress,
+      phone: restaurantPhone,
+      email: restaurantEmail,
       owner: {
+        name: ownerName,
         email: ownerEmail,
         password: ownerPassword,
-        role: 'owner',        // Important: role must be 'owner' as per backend validation
-        status: 'active',     // Optional, set default active
-        // You can add 'name' if you want backend to accept it, but the model does not have 'name' field, only User's first_name/last_name
+        role: 'owner'
       }
     };
 
-    // Make API POST call
+    // Make API POST call to the superadmin restaurant create endpoint
     const response = await axios.post(
-      'http://localhost:8000/api/restaurants/',  // Adjust this URL to match your Django REST endpoint
+      'http://localhost:8000/api/restaurants/',
       payload
     );
 
     // Handle success
     toast.success('Restaurant and owner account created successfully');
+    console.log('Restaurant created:', response.data);
     navigate('/admin/dashboard');
 
   } catch (error: any) {
     console.error('Error registering restaurant:', error);
 
-    // If your backend sends error details in response.data
+    // Handle different types of errors
     if (error.response && error.response.data) {
-      const messages = Object.values(error.response.data).flat().join(' ');
-      toast.error(`Failed: ${messages}`);
+      // Extract error messages from the response
+      const errorData = error.response.data;
+      let errorMessage = 'Failed to register restaurant';
+
+      if (typeof errorData === 'object') {
+        // Handle field-specific errors
+        const errorMessages = [];
+        for (const [field, messages] of Object.entries(errorData)) {
+          if (Array.isArray(messages)) {
+            errorMessages.push(`${field}: ${messages.join(', ')}`);
+          } else if (typeof messages === 'string') {
+            errorMessages.push(`${field}: ${messages}`);
+          }
+        }
+        if (errorMessages.length > 0) {
+          errorMessage = errorMessages.join('; ');
+        }
+      } else if (typeof errorData === 'string') {
+        errorMessage = errorData;
+      }
+
+      toast.error(errorMessage);
+    } else if (error.message) {
+      toast.error(`Network error: ${error.message}`);
     } else {
       toast.error('Failed to register restaurant');
     }

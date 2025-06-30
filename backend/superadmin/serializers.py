@@ -1,9 +1,11 @@
 from rest_framework import serializers
+from django.contrib.auth.hashers import make_password
 from .models import Restaurant, Employee
 
 class EmployeeSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=6)
-    
+    phone = serializers.CharField(required=False, allow_blank=True, default='')
+
     class Meta:
         model = Employee
         fields = ['name', 'email', 'phone', 'role', 'password']
@@ -25,8 +27,9 @@ class RestaurantSerializer(serializers.ModelSerializer):
         owner = Employee.objects.create(
             name=owner_data['name'],
             email=owner_data['email'],
+            phone=owner_data.get('phone', ''),  # Use empty string if phone not provided
             role='owner',
-            password=owner_data['password']  # Store password in plain? You may want to hash it!
+            password=make_password(owner_data['password'])  # Hash the password for security
         )
         owner.restaurants.add(restaurant)
         owner.save()

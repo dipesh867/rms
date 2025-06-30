@@ -15,90 +15,95 @@ import {
 import { useApp } from '../../contexts/AppContext';
 import StatsCard from '../Common/StatsCard';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../utils/supabase';
-import { set } from 'date-fns';
 
 const AdminDashboard: React.FC = () => {
   const { theme, analytics, orders, notifications } = useApp();
   const navigate = useNavigate();
 
-const [previousHealth, setPreviousHealth] = useState<number>();
-const [systemHealth, setSystemHealth] = useState<number>();
-
-
+const [systemHealth, setSystemHealth] = useState<number | null>(null);
+const [systemHealthChange, setSystemHealthChange] = useState<string>('0%');
+const [restaurants_active, setRestaurants_active] = useState<number>(0);
 
   // Admin-specific stats
 const [adminStats, setAdminStats] = useState({
-  totalUsers: null,
-  totalRestaurants: null,
-  totalVendors: null,
-  systemHealthPercent: null,
-  activeUsers: null
+  totalUsers: 0,
+  totalRestaurants: 0,
+  totalVendors: 0,
+  activeUsers: 0,
+  changes: {
+    restaurants: '+0%',
+    users: '+0%',
+    vendors: '+0%'
+  }
 });
 
 
-// Fetch once on mount
+// Fetch system health and track changes
 useEffect(() => {
   async function fetchSystemHealth() {
     try {
       const response = await axios.get('http://localhost:8000/api/system-health/');
-      const newHealth = response.data.system_health_percent;
-      setSystemHealth(newHealth);
-      console.log(previousHealth,newHealth)
+      const data = response.data;
+
+      setSystemHealth(data.system_health_percent);
+      setSystemHealthChange(data.change || '0%');
+
+      console.log('System Health:', {
+        current: data.system_health_percent,
+        change: data.change
+      });
     } catch (error) {
       console.error('Failed to fetch system health:', error);
     }
   }
+
+  // Fetch immediately
   fetchSystemHealth();
+
+  // Set up interval to fetch every 30 seconds
+  const interval = setInterval(fetchSystemHealth, 30000);
+
+  return () => clearInterval(interval);
 }, []);
 
-// Track previous value only when systemHealth changes
+// Fetch restaurants count
 useEffect(() => {
-  if (systemHealth !== null) {
-    setPreviousHealth((prev) => (systemHealth !== prev ? prev ?? systemHealth : prev));
+  async function fetchRestaurants() {
+    try {
+      const response = await axios.get('http://localhost:8000/api/active-restaurants/');
+      const num = response.data.count;
+      setRestaurants_active(num);
+    } catch (error) {
+      console.log('Failed to fetch active restaurants:', error);
+    }
   }
-}, [systemHealth]);
-
+  fetchRestaurants();
+}, []);
 
 
   useEffect(() => {
-    // Fetch admin stats
+    // Fetch admin stats from Django backend
     const fetchAdminStats = async () => {
       try {
-        // Get total user count
-        const { count: userCount, error: userError } = await supabase
-          .from('users')
-          .select('*', { count: 'exact', head: true });
+        const response = await axios.get('http://localhost:8000/api/admin-stats/');
+        const data = response.data;
 
-        // Get total restaurant count
-        const { count: restaurantCount, error: restaurantError } = await supabase
-          .from('restaurants')
-          .select('*', { count: 'exact', head: true });
-
-        // Get active users count
-        const { count: activeCount, error: activeError } = await supabase
-          .from('users')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'active');
-
-        // Get vendor count
-        const { count: vendorCount, error: vendorError } = await supabase
-          .from('users')
-          .select('*', { count: 'exact', head: true })
-          .eq('role', 'vendor');
-
-        setAdminStats(prev => ({
-          ...prev,
-          totalUsers: userCount || 0,
-          totalRestaurants: restaurantCount || 0,
-          activeUsers: activeCount || 0,
-          totalVendors: vendorCount || 0,
-        }));
+        setAdminStats({
+          totalUsers: data.total_users || 0,
+          totalRestaurants: data.total_restaurants || 0,
+          activeUsers: data.active_users || 0,
+          totalVendors: data.total_vendors || 0,
+          changes: data.changes || {
+            restaurants: '+0%',
+            users: '+0%',
+            vendors: '+0%'
+          }
+        });
       } catch (error) {
         console.error('Error fetching admin stats:', error);
       }
     };
-    
+
     fetchAdminStats();
   }, []);
 
@@ -106,47 +111,40 @@ useEffect(() => {
   const stats = [
     {
       title: 'Total Users',
-      value: adminStats.totalUsers !== null ? adminStats.totalUsers.toString() : '0',
-      change: '+12%',
-      changeType: 'positive' as const,
+      value: adminStats.totalUsers.toString(),
+      change: adminStats.changes.users,
+      changeType: adminStats.changes.users.startsWith('+') ? 'positive' as const : 'neutral' as const,
       icon: Users,
       color: 'primary'
     },
     {
       title: 'Active Restaurants',
-      value: adminStats.totalRestaurants !== null ? adminStats.totalRestaurants.toString() : '0',
-      change: '+8%',
-      changeType: 'positive' as const,
+      value: restaurants_active.toString(),
+      change: adminStats.changes.restaurants,
+      changeType: adminStats.changes.restaurants.startsWith('+') ? 'positive' as const : 'neutral' as const,
       icon: Store,
       color: 'secondary'
     },
     {
       title: 'Registered Vendors',
-      value: adminStats.totalVendors !== null ? adminStats.totalVendors.toString() : '0',
-      change: '+15%',
-      changeType: 'positive' as const,
+      value: adminStats.totalVendors.toString(),
+      change: adminStats.changes.vendors,
+      changeType: adminStats.changes.vendors.startsWith('+') ? 'positive' as const : 'neutral' as const,
       icon: Package,
       color: 'accent'
     },
     {
-  title: "System Health",
-  value: systemHealth !== null ? `${systemHealth}%` : 'Loading...',
-  change:
-    systemHealth !== null && previousHealth !== null
-      ? `${(systemHealth! - previousHealth!) > 0 ? '+' : ''}${systemHealth! - previousHealth!}%`
-      : '0%',
-  changeType:
-  systemHealth !== null && previousHealth !== null
-    ? (systemHealth! > previousHealth!
-        ? 'positive'
-        : systemHealth! < previousHealth!
-        ? 'negative'
-        : 'neutral')
-    : 'neutral' as 'positive' | 'negative' | 'neutral',
-
-  icon: CheckCircle,
-  color: 'success'
-}
+      title: "System Health",
+      value: systemHealth !== null ? `${systemHealth}%` : 'Loading...',
+      change: systemHealthChange,
+      changeType: (() => {
+        if (systemHealthChange.startsWith('+')) return 'positive';
+        if (systemHealthChange.startsWith('-')) return 'negative';
+        return 'neutral';
+      })() as 'positive' | 'negative' | 'neutral',
+      icon: CheckCircle,
+      color: 'success'
+    }
 
   ];
 
