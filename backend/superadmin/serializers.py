@@ -20,7 +20,7 @@ class RoleBasedLoginSerializer(serializers.Serializer):
 
         # Tell type checker this is your custom User with role attribute
         user = cast(User, user)
-
+        
         if user.role != expected_role:
             raise serializers.ValidationError(
                 f"Access denied: You are '{user.role}', not allowed in the '{expected_role}' portal"

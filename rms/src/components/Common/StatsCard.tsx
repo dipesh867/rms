@@ -3,12 +3,13 @@ import { DivideIcon as LucideIcon, TrendingUp, TrendingDown, Minus } from 'lucid
 import { useApp } from '../../contexts/AppContext';
 
 interface StatsCardProps {
+  key: string | number;
   title: string;
   value: string;
   change: string;
   changeType: 'positive' | 'negative' | 'neutral';
   icon: LucideIcon;
-  color: 'primary' | 'secondary' | 'accent' | 'success' | 'warning' | 'error';
+  color: string;
 }
 
 const StatsCard: React.FC<StatsCardProps> = ({ 

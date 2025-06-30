@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
 import { 
   TrendingUp, 
   Users, 
@@ -14,18 +16,50 @@ import { useApp } from '../../contexts/AppContext';
 import StatsCard from '../Common/StatsCard';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
+import { set } from 'date-fns';
 
 const AdminDashboard: React.FC = () => {
   const { theme, analytics, orders, notifications } = useApp();
   const navigate = useNavigate();
-  
+
+const [previousHealth, setPreviousHealth] = useState<number>();
+const [systemHealth, setSystemHealth] = useState<number>();
+
+
+
   // Admin-specific stats
-  const [adminStats, setAdminStats] = useState({
-    totalUsers: 0,
-    totalRestaurants: 0,
-    totalVendors: 0,
-    activeUsers: 0
-  });
+const [adminStats, setAdminStats] = useState({
+  totalUsers: null,
+  totalRestaurants: null,
+  totalVendors: null,
+  systemHealthPercent: null,
+  activeUsers: null
+});
+
+
+// Fetch once on mount
+useEffect(() => {
+  async function fetchSystemHealth() {
+    try {
+      const response = await axios.get('http://localhost:8000/a/api/system-health/');
+      const newHealth = response.data.system_health_percent;
+      setSystemHealth(newHealth);
+      console.log(previousHealth,newHealth)
+    } catch (error) {
+      console.error('Failed to fetch system health:', error);
+    }
+  }
+  fetchSystemHealth();
+}, []);
+
+// Track previous value only when systemHealth changes
+useEffect(() => {
+  if (systemHealth !== null) {
+    setPreviousHealth((prev) => (systemHealth !== prev ? prev ?? systemHealth : prev));
+  }
+}, [systemHealth]);
+
+
 
   useEffect(() => {
     // Fetch admin stats
@@ -35,30 +69,31 @@ const AdminDashboard: React.FC = () => {
         const { count: userCount, error: userError } = await supabase
           .from('users')
           .select('*', { count: 'exact', head: true });
-          
+
         // Get total restaurant count
         const { count: restaurantCount, error: restaurantError } = await supabase
           .from('restaurants')
           .select('*', { count: 'exact', head: true });
-          
-        // Get active users
+
+        // Get active users count
         const { count: activeCount, error: activeError } = await supabase
           .from('users')
           .select('*', { count: 'exact', head: true })
           .eq('status', 'active');
-          
+
         // Get vendor count
         const { count: vendorCount, error: vendorError } = await supabase
           .from('users')
           .select('*', { count: 'exact', head: true })
           .eq('role', 'vendor');
-          
-        setAdminStats({
+
+        setAdminStats(prev => ({
+          ...prev,
           totalUsers: userCount || 0,
           totalRestaurants: restaurantCount || 0,
           activeUsers: activeCount || 0,
-          totalVendors: vendorCount || 0
-        });
+          totalVendors: vendorCount || 0,
+        }));
       } catch (error) {
         console.error('Error fetching admin stats:', error);
       }
@@ -71,7 +106,7 @@ const AdminDashboard: React.FC = () => {
   const stats = [
     {
       title: 'Total Users',
-      value: adminStats.totalUsers.toString(),
+      value: adminStats.totalUsers !== null ? adminStats.totalUsers.toString() : '0',
       change: '+12%',
       changeType: 'positive' as const,
       icon: Users,
@@ -79,7 +114,7 @@ const AdminDashboard: React.FC = () => {
     },
     {
       title: 'Active Restaurants',
-      value: adminStats.totalRestaurants.toString(),
+      value: adminStats.totalRestaurants !== null ? adminStats.totalRestaurants.toString() : '0',
       change: '+8%',
       changeType: 'positive' as const,
       icon: Store,
@@ -87,20 +122,32 @@ const AdminDashboard: React.FC = () => {
     },
     {
       title: 'Registered Vendors',
-      value: adminStats.totalVendors.toString(),
+      value: adminStats.totalVendors !== null ? adminStats.totalVendors.toString() : '0',
       change: '+15%',
       changeType: 'positive' as const,
       icon: Package,
       color: 'accent'
     },
     {
-      title: 'System Health',
-      value: '99.9%',
-      change: '+0.2%',
-      changeType: 'positive' as const,
-      icon: CheckCircle,
-      color: 'success'
-    }
+  title: "System Health",
+  value: systemHealth !== null ? `${systemHealth}%` : 'Loading...',
+  change:
+    systemHealth !== null && previousHealth !== null
+      ? `${(systemHealth! - previousHealth!) > 0 ? '+' : ''}${systemHealth! - previousHealth!}%`
+      : '0%',
+  changeType:
+  systemHealth !== null && previousHealth !== null
+    ? (systemHealth! > previousHealth!
+        ? 'positive'
+        : systemHealth! < previousHealth!
+        ? 'negative'
+        : 'neutral')
+    : 'neutral' as 'positive' | 'negative' | 'neutral',
+
+  icon: CheckCircle,
+  color: 'success'
+}
+
   ];
 
   // Admin quick actions
@@ -125,12 +172,15 @@ const AdminDashboard: React.FC = () => {
       action: () => navigate('/admin/vendors'),
       icon: Package,
       color: 'bg-green-500'
+
+      
     }
   ];
 
   const criticalAlerts = notifications.filter(n => n.type === 'warning' || n.type === 'error').slice(0, 3);
 
   return (
+    
     <div className="space-y-6">
       {/* Welcome Banner */}
       <div className={`p-6 rounded-xl ${
@@ -160,8 +210,16 @@ const AdminDashboard: React.FC = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
-          <StatsCard key={index} {...stat} />
-        ))}
+ <StatsCard
+          key={index}
+          title={stat.title}
+          value={stat.value}      
+          change={stat.change}
+          changeType={stat.changeType}
+          icon={stat.icon}
+          color={stat.color}
+        />  
+))}
       </div>
 
       {/* Quick Actions and Alerts */}
