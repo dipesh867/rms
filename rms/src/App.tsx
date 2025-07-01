@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
 import { AuthAPIProvider } from './hooks/useAuthAPI';
 import { AppProvider } from './contexts/AppContext';
@@ -15,6 +16,7 @@ import LoginPage from './pages/LoginPage';
 import AdminLogin from './pages/auth/AdminLogin';
 import OwnerLogin from './pages/auth/OwnerLogin';
 import StaffLogin from './pages/auth/StaffLogin';
+import LoginSelector from './components/Auth/LoginSelector';
 import AdminLayout from './components/Layouts/AdminLayout';
 import OwnerLayout from './components/Layouts/OwnerLayout';
 import ManagerLayout from './components/Layouts/ManagerLayout';
@@ -26,7 +28,8 @@ import CreateManagerPage from './pages/CreateManagerPage';
 function App() {
   return (
     <Router basename="/rms">
-      <AppProvider>
+      <ThemeProvider>
+        <AppProvider>
         <AuthAPIProvider>
           <InventoryAPIProvider>
             <MenuProvider>
@@ -57,8 +60,11 @@ function App() {
                     }}
                   />
                   <Routes>
+                    {/* Login selector - main entry point */}
+                    <Route path="/login" element={<LoginSelector />} />
+
                     {/* Legacy login route */}
-                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/legacy-login" element={<LoginPage />} />
 
                     {/* Role-specific login routes */}
                     <Route path="/admin/login" element={<AdminLogin />} />
@@ -87,8 +93,8 @@ function App() {
                         </ProtectedRoute>
                       } 
                     />
-                    <Route path="/" element={<Navigate to="/admin/login" replace />} />
-                    <Route path="*" element={<Navigate to="/admin/login" replace />} />
+                    <Route path="/" element={<Navigate to="/login" replace />} />
+                    <Route path="*" element={<Navigate to="/login" replace />} />
                   </Routes>
                 </POSAPIProvider>
               </TablesAPIProvider>
@@ -96,6 +102,7 @@ function App() {
           </InventoryAPIProvider>
         </AuthAPIProvider>
       </AppProvider>
+      </ThemeProvider>
     </Router>
   );
 }
