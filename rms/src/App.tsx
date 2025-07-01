@@ -2,12 +2,19 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './hooks/useAuth';
+import { AuthAPIProvider } from './hooks/useAuthAPI';
 import { AppProvider } from './contexts/AppContext';
 import { InventoryProvider } from './hooks/useInventory';
+import { InventoryAPIProvider } from './hooks/useInventoryAPI';
 import { MenuProvider } from './hooks/useMenu';
 import { TableProvider } from './hooks/useTables';
+import { TablesAPIProvider } from './hooks/useTablesAPI';
 import { POSProvider } from './hooks/usePOS';
+import { POSAPIProvider } from './hooks/usePOSAPI';
 import LoginPage from './pages/LoginPage';
+import AdminLogin from './pages/auth/AdminLogin';
+import OwnerLogin from './pages/auth/OwnerLogin';
+import StaffLogin from './pages/auth/StaffLogin';
 import AdminLayout from './components/Layouts/AdminLayout';
 import OwnerLayout from './components/Layouts/OwnerLayout';
 import ManagerLayout from './components/Layouts/ManagerLayout';
@@ -20,11 +27,11 @@ function App() {
   return (
     <Router basename="/rms">
       <AppProvider>
-        <AuthProvider>
-          <InventoryProvider>
+        <AuthAPIProvider>
+          <InventoryAPIProvider>
             <MenuProvider>
-              <TableProvider>
-                <POSProvider>
+              <TablesAPIProvider>
+                <POSAPIProvider>
                   <Toaster 
                     position="top-right"
                     toastOptions={{
@@ -50,11 +57,20 @@ function App() {
                     }}
                   />
                   <Routes>
+                    {/* Legacy login route */}
                     <Route path="/login" element={<LoginPage />} />
+
+                    {/* Role-specific login routes */}
+                    <Route path="/admin/login" element={<AdminLogin />} />
+                    <Route path="/owner/login" element={<OwnerLogin />} />
+                    <Route path="/staff/login" element={<StaffLogin />} />
+
                     <Route path="/super-admin-signup" element={<SuperUserSignUp />} />
                     <Route path="/admin/*" element={<AdminLayout />} />
                     <Route path="/owner/*" element={<OwnerLayout />} />
                     <Route path="/manager/*" element={<ManagerLayout />} />
+                    <Route path="/kitchen/*" element={<ManagerLayout />} />
+                    <Route path="/staff/*" element={<ManagerLayout />} />
                     <Route 
                       path="/register-restaurant" 
                       element={
@@ -71,14 +87,14 @@ function App() {
                         </ProtectedRoute>
                       } 
                     />
-                    <Route path="/" element={<Navigate to="/login" replace />} />
-                    <Route path="*" element={<Navigate to="/login" replace />} />
+                    <Route path="/" element={<Navigate to="/admin/login" replace />} />
+                    <Route path="*" element={<Navigate to="/admin/login" replace />} />
                   </Routes>
-                </POSProvider>
-              </TableProvider>
+                </POSAPIProvider>
+              </TablesAPIProvider>
             </MenuProvider>
-          </InventoryProvider>
-        </AuthProvider>
+          </InventoryAPIProvider>
+        </AuthAPIProvider>
       </AppProvider>
     </Router>
   );

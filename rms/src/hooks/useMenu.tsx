@@ -1,5 +1,5 @@
 import { useState, useEffect, createContext, useContext } from 'react';
-import { supabase } from '../utils/supabase';
+import { menuAPI } from '../services/api';
 import { useAuth } from './useAuth';
 import toast from 'react-hot-toast';
 
@@ -92,28 +92,24 @@ export const MenuProvider = ({ children }: { children: React.ReactNode }) => {
   // Fetch menu items based on user's restaurant
   const fetchMenu = async () => {
     if (!user?.restaurant_id) return;
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
-      const { data, error } = await supabase
-        .from('menu_items')
-        .select('*')
-        .eq('restaurant_id', user.restaurant_id)
-        .order('name');
-      
-      if (error) throw error;
-      
+
+      // Fetch menu items from Django API
+      const response = await menuAPI.getMenuItems(parseInt(user.restaurant_id));
+      const data = response.data;
+
       setMenuItems(data || []);
-      
-      // Extract unique categories
-      const categories = Array.from(new Set(data?.map(item => item.category) || []));
+
+      // Extract unique categories from menu items
+      const categories = Array.from(new Set(data?.map((item: any) => item.category_name || item.category) || []));
       setMenuCategories(categories);
-      
+
     } catch (err: any) {
       console.error('Error fetching menu:', err);
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
       toast.error('Failed to load menu items');
     } finally {
       setIsLoading(false);
@@ -126,34 +122,31 @@ export const MenuProvider = ({ children }: { children: React.ReactNode }) => {
       toast.error('No restaurant associated with your account');
       return null;
     }
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
-      const { data, error } = await supabase
-        .from('menu_items')
-        .insert({
-          ...item,
-          restaurant_id: user.restaurant_id
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
+
+      // Create menu item via Django API
+      const response = await menuAPI.createMenuItem({
+        ...item,
+        restaurant: parseInt(user.restaurant_id)
+      });
+      const data = response.data;
+
       setMenuItems(prev => [...prev, data]);
-      
+
       // Update categories if needed
-      if (!menuCategories.includes(data.category)) {
-        setMenuCategories(prev => [...prev, data.category]);
+      const categoryName = data.category_name || data.category;
+      if (categoryName && !menuCategories.includes(categoryName)) {
+        setMenuCategories(prev => [...prev, categoryName]);
       }
-      
+
       toast.success('Menu item added successfully');
       return data;
     } catch (err: any) {
       console.error('Error adding menu item:', err);
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
       toast.error('Failed to add menu item');
       return null;
     } finally {
@@ -166,31 +159,26 @@ export const MenuProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       // Remove unwanted fields from updates
-      const { id: _, restaurant_id: __, created_at: ___, updated_at: ____, ...cleanUpdates } = updates;
-      
-      const { data, error } = await supabase
-        .from('menu_items')
-        .update(cleanUpdates)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
+      const { id: _, restaurant_id: __, created_at: ___, updated_at: ____, restaurant_name: _____, category_name: ______, ...cleanUpdates } = updates;
+
+      const response = await menuAPI.updateMenuItem(parseInt(id), cleanUpdates);
+      const data = response.data;
+
       setMenuItems(prev => prev.map(item => item.id === id ? data : item));
-      
+
       // Update categories if needed
-      if (updates.category && !menuCategories.includes(updates.category)) {
-        setMenuCategories(prev => [...prev, updates.category!]);
+      const categoryName = data.category_name || data.category;
+      if (categoryName && !menuCategories.includes(categoryName)) {
+        setMenuCategories(prev => [...prev, categoryName]);
       }
-      
+
       toast.success('Menu item updated successfully');
       return data;
     } catch (err: any) {
       console.error('Error updating menu item:', err);
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
       toast.error('Failed to update menu item');
       return null;
     } finally {
@@ -204,12 +192,7 @@ export const MenuProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(true);
       setError(null);
       
-      const { error } = await supabase
-        .from('menu_items')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
+      await menuAPI.deleteMenuItem(parseInt(id));
       
       setMenuItems(prev => prev.filter(item => item.id !== id));
       toast.success('Menu item deleted successfully');

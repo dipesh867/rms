@@ -20,132 +20,113 @@ const AdminDashboard: React.FC = () => {
   const { theme, analytics, orders, notifications } = useApp();
   const navigate = useNavigate();
 
-const [systemHealth, setSystemHealth] = useState<number | null>(null);
-const [systemHealthChange, setSystemHealthChange] = useState<string>('0%');
-const [restaurants_active, setRestaurants_active] = useState<number>(0);
-
-  // Admin-specific stats
-const [adminStats, setAdminStats] = useState({
-  totalUsers: 0,
-  totalRestaurants: 0,
-  totalVendors: 0,
-  activeUsers: 0,
-  changes: {
-    restaurants: '+0%',
-    users: '+0%',
-    vendors: '+0%'
-  }
+// Unified dashboard state
+const [dashboardData, setDashboardData] = useState({
+  system_health: {
+    current: null as number | null,
+    change: '0%'
+  },
+  restaurants: {
+    total: 0,
+    change: '0%'
+  },
+  users: {
+    total: 0,
+    active: 0,
+    change: '0%'
+  },
+  vendors: {
+    total: 0,
+    change: '0%'
+  },
+  last_updated: 'Never'
 });
 
+const [isLoading, setIsLoading] = useState(true);
+const [error, setError] = useState<string | null>(null);
 
-// Fetch system health and track changes
+
+// Unified dashboard data fetching
 useEffect(() => {
-  async function fetchSystemHealth() {
+  const fetchDashboardData = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/system-health/');
+      setIsLoading(true);
+      setError(null);
+
+      const response = await axios.get('http://localhost:8000/api/dashboard-stats/');
       const data = response.data;
 
-      setSystemHealth(data.system_health_percent);
-      setSystemHealthChange(data.change || '0%');
+      setDashboardData(data);
 
-      console.log('System Health:', {
-        current: data.system_health_percent,
-        change: data.change
+      console.log('Dashboard Data Updated:', {
+        system_health: data.system_health.current,
+        restaurants: data.restaurants.total,
+        users: data.users.total,
+        last_updated: data.last_updated
       });
+
     } catch (error) {
-      console.error('Failed to fetch system health:', error);
+      console.error('Failed to fetch dashboard data:', error);
+      setError('Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   // Fetch immediately
-  fetchSystemHealth();
+  fetchDashboardData();
 
   // Set up interval to fetch every 30 seconds
-  const interval = setInterval(fetchSystemHealth, 30000);
+  const interval = setInterval(fetchDashboardData, 30000);
 
   return () => clearInterval(interval);
 }, []);
 
-// Fetch restaurants count
-useEffect(() => {
-  async function fetchRestaurants() {
-    try {
-      const response = await axios.get('http://localhost:8000/api/active-restaurants/');
-      const num = response.data.count;
-      setRestaurants_active(num);
-    } catch (error) {
-      console.log('Failed to fetch active restaurants:', error);
-    }
-  }
-  fetchRestaurants();
-}, []);
+  // Helper function to determine change type
+  const getChangeType = (change: string): 'positive' | 'negative' | 'neutral' => {
+    if (change.startsWith('+')) return 'positive';
+    if (change.startsWith('-')) return 'negative';
+    return 'neutral';
+  };
 
-
-  useEffect(() => {
-    // Fetch admin stats from Django backend
-    const fetchAdminStats = async () => {
-      try {
-        const response = await axios.get('http://localhost:8000/api/admin-stats/');
-        const data = response.data;
-
-        setAdminStats({
-          totalUsers: data.total_users || 0,
-          totalRestaurants: data.total_restaurants || 0,
-          activeUsers: data.active_users || 0,
-          totalVendors: data.total_vendors || 0,
-          changes: data.changes || {
-            restaurants: '+0%',
-            users: '+0%',
-            vendors: '+0%'
-          }
-        });
-      } catch (error) {
-        console.error('Error fetching admin stats:', error);
-      }
-    };
-
-    fetchAdminStats();
-  }, []);
-
-  // Admin stats cards
+  // Admin stats cards using unified dashboard data
   const stats = [
     {
       title: 'Total Users',
-      value: adminStats.totalUsers.toString(),
-      change: adminStats.changes.users,
-      changeType: adminStats.changes.users.startsWith('+') ? 'positive' as const : 'neutral' as const,
+      value: isLoading ? 'Loading...' : dashboardData.users.total.toString(),
+      change: dashboardData.users.change,
+      changeType: getChangeType(dashboardData.users.change),
       icon: Users,
       color: 'primary'
     },
     {
       title: 'Active Restaurants',
-      value: restaurants_active.toString(),
-      change: adminStats.changes.restaurants,
-      changeType: adminStats.changes.restaurants.startsWith('+') ? 'positive' as const : 'neutral' as const,
+      value: isLoading ? 'Loading...' : dashboardData.restaurants.total.toString(),
+      change: dashboardData.restaurants.change,
+      changeType: getChangeType(dashboardData.restaurants.change),
       icon: Store,
       color: 'secondary'
     },
     {
       title: 'Registered Vendors',
-      value: adminStats.totalVendors.toString(),
-      change: adminStats.changes.vendors,
-      changeType: adminStats.changes.vendors.startsWith('+') ? 'positive' as const : 'neutral' as const,
+      value: isLoading ? 'Loading...' : dashboardData.vendors.total.toString(),
+      change: dashboardData.vendors.change,
+      changeType: getChangeType(dashboardData.vendors.change),
       icon: Package,
       color: 'accent'
     },
     {
       title: "System Health",
-      value: systemHealth !== null ? `${systemHealth}%` : 'Loading...',
-      change: systemHealthChange,
-      changeType: (() => {
-        if (systemHealthChange.startsWith('+')) return 'positive';
-        if (systemHealthChange.startsWith('-')) return 'negative';
-        return 'neutral';
-      })() as 'positive' | 'negative' | 'neutral',
+      value: isLoading
+        ? 'Loading...'
+        : dashboardData.system_health.current !== null
+          ? `${dashboardData.system_health.current}%`
+          : 'N/A',
+      change: dashboardData.system_health.change,
+      changeType: getChangeType(dashboardData.system_health.change),
       icon: CheckCircle,
       color: 'success'
     }
-
   ];
 
   // Admin quick actions
@@ -177,8 +158,34 @@ useEffect(() => {
 
   const criticalAlerts = notifications.filter(n => n.type === 'warning' || n.type === 'error').slice(0, 3);
 
+  // Show error state if there's an error
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className={`p-6 rounded-xl border ${
+          theme === 'dark'
+            ? 'bg-red-900/20 border-red-800 text-red-300'
+            : 'bg-red-50 border-red-200 text-red-800'
+        }`}>
+          <div className="flex items-center space-x-3">
+            <AlertTriangle className="w-6 h-6" />
+            <div>
+              <h3 className="font-semibold">Dashboard Error</h3>
+              <p className="text-sm">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 text-sm underline hover:no-underline"
+              >
+                Refresh Page
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    
     <div className="space-y-6">
       {/* Welcome Banner */}
       <div className={`p-6 rounded-xl ${
@@ -194,6 +201,12 @@ useEffect(() => {
             <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
               Manage your entire restaurant network from one central location
             </p>
+            {!isLoading && dashboardData.last_updated !== 'Never' && (
+              <div className={`text-xs mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p>Last updated: {new Date(dashboardData.last_updated).toLocaleTimeString()}</p>
+                <p>Percentage changes compared to 1 week ago</p>
+              </div>
+            )}
           </div>
           <button
             onClick={() => navigate('/register-restaurant')}
