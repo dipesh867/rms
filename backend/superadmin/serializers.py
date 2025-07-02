@@ -1,15 +1,71 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from .models import (
-    # User, UserSession, LoginAttempt, Permission, RolePermission,  # Temporarily commented out
+    User, UserSession, LoginAttempt, Permission, RolePermission,
     Restaurant, Employee, DailyStats, MenuCategory, MenuItem,
     InventoryCategory, InventoryItem, Table, Chair, Customer,
     Order, OrderItem, Vendor, Staff, Notification, Expense, WasteEntry
 )
 
 # === USER & AUTHENTICATION SERIALIZERS ===
-# Temporarily commented out - depends on User model
-# All User-related serializers commented out for now
+class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'name', 'phone', 'role', 'department',
+            'status', 'avatar', 'last_login', 'created_at', 'password'
+        ]
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'last_login': {'read_only': True},
+            'created_at': {'read_only': True}
+        }
+
+    def create(self, validated_data):
+        password = validated_data.pop('password', None)
+        user = User.objects.create(**validated_data)
+        if password:
+            user.set_password(password)
+            user.save()
+        return user
+
+
+class UserSessionSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.name', read_only=True)
+
+    class Meta:
+        model = UserSession
+        fields = [
+            'id', 'user_email', 'user_name', 'ip_address',
+            'user_agent', 'is_active', 'created_at', 'last_activity'
+        ]
+
+
+class LoginAttemptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LoginAttempt
+        fields = [
+            'id', 'email', 'ip_address', 'user_agent',
+            'success', 'failure_reason', 'timestamp'
+        ]
+
+
+class PermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Permission
+        fields = ['id', 'name', 'codename', 'description', 'module']
+
+
+class RolePermissionSerializer(serializers.ModelSerializer):
+    permission_name = serializers.CharField(source='permission.name', read_only=True)
+    restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
+
+    class Meta:
+        model = RolePermission
+        fields = ['id', 'role', 'permission', 'permission_name', 'restaurant', 'restaurant_name']
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
@@ -31,8 +87,18 @@ class EmployeeSerializer(serializers.ModelSerializer):
             'created_at': {'read_only': True}
         }
 
+class OwnerSerializer(serializers.ModelSerializer):
+    """Simplified serializer for creating restaurant owners"""
+    password = serializers.CharField(write_only=True, required=True, min_length=6)
+    phone = serializers.CharField(required=False, allow_blank=True, default='')
+
+    class Meta:
+        model = Employee
+        fields = ['name', 'email', 'phone', 'password']
+
+
 class RestaurantSerializer(serializers.ModelSerializer):
-    owner = EmployeeSerializer(write_only=True)
+    owner = OwnerSerializer(write_only=True)
 
     class Meta:
         model = Restaurant
@@ -49,7 +115,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
             name=owner_data['name'],
             email=owner_data['email'],
             phone=owner_data.get('phone', ''),  # Use empty string if phone not provided
-            role='owner',
+            role='owner',  # Automatically set role to owner
             password=make_password(owner_data['password'])  # Hash the password for security
         )
         owner.restaurants.add(restaurant)

@@ -29,24 +29,71 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
-# Temporarily commented out to resolve conflicts - will implement later
-# class User(AbstractUser):
-#     ROLE_CHOICES = [
-#         ('admin', 'System Administrator'),
-#         ('owner', 'Restaurant Owner'),
-#         ('vendor', 'Vendor Partner'),
-#         ('kitchen', 'Kitchen Staff'),
-#         ('staff', 'Restaurant Staff'),
-#         ('manager', 'Restaurant Manager'),
-#     ]
-#     # ... rest of User model fields and methods
+class User(AbstractUser):
+    ROLE_CHOICES = [
+        ('admin', 'System Administrator'),
+        ('owner', 'Restaurant Owner'),
+        ('vendor', 'Vendor Partner'),
+        ('kitchen', 'Kitchen Staff'),
+        ('staff', 'Restaurant Staff'),
+        ('manager', 'Restaurant Manager'),
+    ]
+
+    DEPARTMENT_CHOICES = [
+        ('IT', 'IT'),
+        ('Support', 'Support'),
+        ('Sales', 'Sales'),
+        ('HR', 'Human Resources'),
+        ('Finance', 'Finance'),
+        ('Operations', 'Operations'),
+        ('Management', 'Management'),
+        ('Kitchen', 'Kitchen'),
+        ('Service', 'Service'),
+        ('Cleaning', 'Cleaning'),
+    ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('pending', 'Pending Approval'),
+        ('suspended', 'Suspended'),
+    ]
+
+    username = None  # Remove username field
+    email = models.EmailField(unique=True)
+    name = models.CharField(max_length=255, blank=True)
+    phone = models.CharField(max_length=20, null=True, blank=True)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    department = models.CharField(max_length=50, choices=DEPARTMENT_CHOICES, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    recent_activity = models.TextField(blank=True, null=True)
+    avatar = models.URLField(blank=True, null=True)
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+    failed_login_attempts = models.IntegerField(default=0)
+    account_locked_until = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
+
+    objects = UserManager()
+
+    def __str__(self):
+        return f"{self.email} ({self.role})"
+
+    def get_full_name(self):
+        return self.name or self.email
+
+    def is_account_locked(self):
+        from django.utils import timezone
+        return self.account_locked_until and self.account_locked_until > timezone.now()
 
 
 # === AUTHENTICATION & SESSION MODELS ===
-# Temporarily commented out - depends on User model
-# class UserSession(models.Model):
-#     """Track user sessions for security"""
-#     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
+class UserSession(models.Model):
+    """Track user sessions for security"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
     session_key = models.CharField(max_length=40, unique=True)
     ip_address = models.GenericIPAddressField()
     user_agent = models.TextField()
@@ -90,19 +137,18 @@ class Permission(models.Model):
         return f"{self.module}.{self.codename}"
 
 
-# Temporarily commented out - depends on User model
-# class RolePermission(models.Model):
-#     """Map roles to permissions"""
-#     role = models.CharField(max_length=20, choices=User.ROLE_CHOICES)
-#     permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
-#     restaurant = models.ForeignKey('Restaurant', on_delete=models.CASCADE, null=True, blank=True)
-#
-#     class Meta:
-#         unique_together = ['role', 'permission', 'restaurant']
-#
-#     def __str__(self):
-#         restaurant_name = f" ({self.restaurant.name})" if self.restaurant else ""
-#         return f"{self.role} - {self.permission}{restaurant_name}"
+class RolePermission(models.Model):
+    """Map roles to permissions"""
+    role = models.CharField(max_length=20, choices=User.ROLE_CHOICES)
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
+    restaurant = models.ForeignKey('Restaurant', on_delete=models.CASCADE, null=True, blank=True)
+
+    class Meta:
+        unique_together = ['role', 'permission', 'restaurant']
+
+    def __str__(self):
+        restaurant_name = f" ({self.restaurant.name})" if self.restaurant else ""
+        return f"{self.role} - {self.permission}{restaurant_name}"
     
 
 
@@ -119,10 +165,13 @@ class Restaurant(models.Model):
 
 class Employee(models.Model):
     ROLE_CHOICES = [
-        ('owner','Owner'),
+        ('admin', 'System Administrator'),
+        ('owner', 'Owner'),
         ('manager', 'Manager'),
-        ('kitchen_staff', 'Kitchen Staff'),
-        ('resturant_staff', 'Resturant Staff')
+        ('kitchen', 'Kitchen Staff'),
+        ('staff', 'Restaurant Staff'),
+        ('waiter', 'Waiter'),
+        ('vendor', 'Vendor')
     ]
 
     name = models.CharField(max_length=100)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuthAPI } from '../../hooks/useAuthAPI';
 import Sidebar from '../Layout/Sidebar';
 import Header from '../Layout/Header';
 
@@ -12,11 +12,11 @@ import UserManagement from '../Admin/UserManagement';
 import RegisterRestaurantPage from '../../pages/RegisterRestaurantPage';
 
 const AdminLayout: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthAPI();
   const [activeSection, setActiveSection] = React.useState('dashboard');
 
   if (!user || user.role !== 'admin') {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
 
   const getSectionTitle = (section: string) => {

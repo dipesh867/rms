@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuthAPI } from '../../hooks/useAuthAPI';
 import Sidebar from '../Layout/Sidebar';
 import Header from '../Layout/Header';
 
@@ -16,7 +16,7 @@ import InventorySystem from '../Inventory/InventorySystem';
 import VendorMicrosite from '../Vendor/VendorMicrosite';
 
 const OwnerLayout: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthAPI();
   const [activeSection, setActiveSection] = React.useState('dashboard');
 
   if (!user || user.role !== 'owner') {

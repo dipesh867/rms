@@ -8,12 +8,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
-from django.contrib.auth.models import User
 from django.db import transaction
 from django.core.cache import cache
 from django.utils import timezone
 from datetime import timedelta
-from .models import Restaurant, Employee
+from .models import Restaurant, Employee, User
 from .serializers import RestaurantSerializer
 
 
@@ -284,17 +283,9 @@ class RestaurantCreateView(generics.CreateAPIView):
         if not self.request.user.is_authenticated:
             raise PermissionDenied("Authentication required")
 
-        # Check if user is admin using Employee model
-        user_email = getattr(self.request.user, 'email', '')
-        if not user_email:
-            raise PermissionDenied("User email not found")
-
-        try:
-            employee = Employee.objects.get(email=user_email)
-            if employee.role != 'admin':
-                raise PermissionDenied("Only administrators can create restaurants")
-        except Employee.DoesNotExist:
-            raise PermissionDenied("User not found or not authorized")
+        # Check if user is admin using custom User model
+        if self.request.user.role != 'admin':
+            raise PermissionDenied("Only administrators can create restaurants")
 
         # Create the restaurant
         restaurant = serializer.save()

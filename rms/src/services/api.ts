@@ -19,9 +19,10 @@ const apiClient = axios.create({
 // Add request interceptor for authentication
 apiClient.interceptors.request.use(
   (config) => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user.token) {
-      config.headers.Authorization = `Bearer ${user.token}`;
+    // Check for access token in localStorage
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -267,14 +268,14 @@ export const analyticsAPI = {
 
 // === RESTAURANT MANAGEMENT APIs ===
 export const restaurantAPI = {
-  getRestaurants: () => apiClient.get('/restaurants/'),
-  
-  createRestaurant: (data: any) => apiClient.post('/restaurants/', data),
-  
-  updateRestaurant: (id: number, data: any) => 
-    apiClient.put(`/restaurants/${id}/`, data),
-  
-  deleteRestaurant: (id: number) => apiClient.delete(`/restaurants/${id}/`),
+  getRestaurants: () => apiClient.get('/superadmin/restaurants/'),
+
+  createRestaurant: (data: any) => apiClient.post('/superadmin/restaurants/', data),
+
+  updateRestaurant: (id: number, data: any) =>
+    apiClient.put(`/superadmin/restaurants/${id}/`, data),
+
+  deleteRestaurant: (id: number) => apiClient.delete(`/superadmin/restaurants/${id}/`),
 };
 
 // Export default API client for custom requests

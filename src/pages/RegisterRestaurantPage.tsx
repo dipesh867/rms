@@ -21,12 +21,7 @@ const RegisterRestaurantPage: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState(false);
   
-  const [theme] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-    }
-    return 'light';
-  });
+  const [theme] = useState<'light' | 'dark'>('light'); // Force light theme for now
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -26,7 +26,7 @@ authAPI.interceptors.response.use(
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      window.location.href = '/rms/';
     }
     return Promise.reject(error);
   }
@@ -102,7 +102,7 @@ export const AuthAPIProvider: React.FC<AuthAPIProviderProps> = ({ children }) =>
     try {
       setIsLoading(true);
       
-      const response = await authAPI.post('/auth/admin/login/', {
+      const response = await authAPI.post('/superadmin/auth/admin/login/', {
         email,
         password
       });
@@ -121,7 +121,7 @@ export const AuthAPIProvider: React.FC<AuthAPIProviderProps> = ({ children }) =>
       setUser(userData);
 
       toast.success(`Welcome back, ${userData.name}!`);
-      navigate('/admin');
+      navigate('/admin/dashboard');
 
     } catch (error: any) {
       console.error('Admin login error:', error);
@@ -138,7 +138,7 @@ export const AuthAPIProvider: React.FC<AuthAPIProviderProps> = ({ children }) =>
     try {
       setIsLoading(true);
       
-      const response = await authAPI.post('/auth/owner/login/', {
+      const response = await authAPI.post('/superadmin/auth/owner/login/', {
         email,
         password
       });
@@ -157,7 +157,7 @@ export const AuthAPIProvider: React.FC<AuthAPIProviderProps> = ({ children }) =>
       setUser(userData);
 
       toast.success(`Welcome back, ${userData.name}!`);
-      navigate('/owner');
+      navigate('/owner/dashboard');
 
     } catch (error: any) {
       console.error('Owner login error:', error);
@@ -174,7 +174,7 @@ export const AuthAPIProvider: React.FC<AuthAPIProviderProps> = ({ children }) =>
     try {
       setIsLoading(true);
       
-      const response = await authAPI.post('/auth/staff/login/', {
+      const response = await authAPI.post('/superadmin/auth/staff/login/', {
         email,
         password
       });
@@ -196,11 +196,11 @@ export const AuthAPIProvider: React.FC<AuthAPIProviderProps> = ({ children }) =>
       
       // Navigate based on role
       if (userData.role === 'manager') {
-        navigate('/manager');
+        navigate('/manager/dashboard');
       } else if (userData.role === 'kitchen') {
-        navigate('/kitchen');
+        navigate('/kitchen/dashboard');
       } else {
-        navigate('/staff');
+        navigate('/staff/dashboard');
       }
 
     } catch (error: any) {
@@ -219,7 +219,7 @@ export const AuthAPIProvider: React.FC<AuthAPIProviderProps> = ({ children }) =>
       const refreshToken = localStorage.getItem('refresh_token');
       
       if (refreshToken) {
-        await authAPI.post('/auth/logout/', {
+        await authAPI.post('/superadmin/auth/logout/', {
           refresh_token: refreshToken
         });
       }
@@ -239,7 +239,7 @@ export const AuthAPIProvider: React.FC<AuthAPIProviderProps> = ({ children }) =>
       if (!token) return false;
 
       setAuthHeaders(token);
-      const response = await authAPI.get('/auth/verify/');
+      const response = await authAPI.get('/superadmin/auth/verify/');
       
       if (response.data.user) {
         setUser(response.data.user);

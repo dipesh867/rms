@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Store, Mail, Phone, MapPin, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import axios from 'axios';
+import { restaurantAPI } from '../services/api';
 
 const RegisterRestaurantPage: React.FC = () => {
   const navigate = useNavigate();
@@ -34,29 +34,26 @@ const RegisterRestaurantPage: React.FC = () => {
   setIsLoading(true);
 
   try {
-    // Prepare payload matching the superadmin API expectations
-    const payload = {
+    // Prepare data for API call
+    const restaurantData = {
       name: restaurantName,
+      email: restaurantEmail,
       address: restaurantAddress,
       phone: restaurantPhone,
-      email: restaurantEmail,
       owner: {
         name: ownerName,
         email: ownerEmail,
-        password: ownerPassword,
-        role: 'owner'
+        password: ownerPassword
       }
     };
 
-    // Make API POST call to the superadmin restaurant create endpoint
-    const response = await axios.post(
-      'http://localhost:8000/api/restaurants/',
-      payload
-    );
+    // Call the real API
+    const response = await restaurantAPI.createRestaurant(restaurantData);
 
-    // Handle success
-    toast.success('Restaurant and owner account created successfully');
-    console.log('Restaurant created:', response.data);
+    console.log('Restaurant created successfully:', response);
+    toast.success('Restaurant and owner account created successfully!');
+
+    // Navigate back to admin dashboard
     navigate('/admin/dashboard');
 
   } catch (error: any) {

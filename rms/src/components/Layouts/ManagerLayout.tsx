@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuthAPI } from '../../hooks/useAuthAPI';
 import Sidebar from '../Layout/Sidebar';
 import Header from '../Layout/Header';
 import ManagerPortal from '../Manager/ManagerPortal';
 
 const ManagerLayout: React.FC = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useAuthAPI();
   const [activeSection, setActiveSection] = useState('dashboard');
 
   if (isLoading) {

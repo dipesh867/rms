@@ -30,8 +30,9 @@ function App() {
     <Router basename="/rms">
       <ThemeProvider>
         <AppProvider>
-        <AuthAPIProvider>
-          <InventoryAPIProvider>
+          <AuthProvider>
+            <AuthAPIProvider>
+              <InventoryAPIProvider>
             <MenuProvider>
               <TablesAPIProvider>
                 <POSAPIProvider>
@@ -101,6 +102,7 @@ function App() {
             </MenuProvider>
           </InventoryAPIProvider>
         </AuthAPIProvider>
+      </AuthProvider>
       </AppProvider>
       </ThemeProvider>
     </Router>

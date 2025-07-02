@@ -48,8 +48,8 @@ INSTALLED_APPS = [
     'vendor_dashboard',
 ]
 
-# Custom User Model - temporarily disabled due to migration conflicts
-# AUTH_USER_MODEL = 'superadmin.User'
+# Custom User Model
+AUTH_USER_MODEL = 'superadmin.User'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
