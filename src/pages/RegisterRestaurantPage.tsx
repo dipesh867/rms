@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Store, Mail, Phone, MapPin, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { restaurantAPI, RestaurantData } from '../services/api';
 
 const RegisterRestaurantPage: React.FC = () => {
   const navigate = useNavigate();
@@ -29,33 +30,35 @@ const RegisterRestaurantPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       setIsLoading(true);
-      
-      // Mock successful restaurant registration (frontend only)
-      setTimeout(() => {
-        console.log('Mock restaurant registration:', {
-          restaurant: {
-            name: restaurantName,
-            address: restaurantAddress,
-            phone: restaurantPhone,
-            email: restaurantEmail
-          },
-          owner: {
-            name: ownerName,
-            email: ownerEmail,
-            password: ownerPassword
-          }
-        });
-        
-        toast.success('Restaurant and owner account created successfully');
-        navigate('/admin/dashboard');
-      }, 1500);
-      
+
+      // Prepare data for API call
+      const restaurantData: RestaurantData = {
+        name: restaurantName,
+        email: restaurantEmail,
+        address: restaurantAddress,
+        phone: restaurantPhone,
+        owner: {
+          name: ownerName,
+          email: ownerEmail,
+          password: ownerPassword
+        }
+      };
+
+      // Call the real API
+      const response = await restaurantAPI.create(restaurantData);
+
+      console.log('Restaurant created successfully:', response);
+      toast.success('Restaurant and owner account created successfully!');
+
+      // Navigate back to admin dashboard
+      navigate('/admin/dashboard');
+
     } catch (error: any) {
       console.error('Error registering restaurant:', error);
-      toast.error('Failed to register restaurant');
+      toast.error(error.message || 'Failed to register restaurant. Please try again.');
     } finally {
       setIsLoading(false);
     }

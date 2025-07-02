@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  TrendingUp, 
-  Users, 
-  ShoppingCart, 
+import {
+  TrendingUp,
+  Users,
+  ShoppingCart,
   DollarSign,
   Store,
   Package,
@@ -13,95 +13,76 @@ import {
 import { useApp } from '../../contexts/AppContext';
 import StatsCard from '../Common/StatsCard';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../utils/supabase';
+import { dashboardAPI, DashboardStats } from '../../services/api';
 
 const AdminDashboard: React.FC = () => {
   const { theme, analytics, orders, notifications } = useApp();
   const navigate = useNavigate();
   
   // Admin-specific stats
-  const [adminStats, setAdminStats] = useState({
-    totalUsers: 0,
-    totalRestaurants: 0,
-    totalVendors: 0,
-    activeUsers: 0
-  });
+  const [adminStats, setAdminStats] = useState<DashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch admin stats
+    // Fetch admin stats from Django backend
     const fetchAdminStats = async () => {
       try {
-        // Get total user count
-        const { count: userCount, error: userError } = await supabase
-          .from('users')
-          .select('*', { count: 'exact', head: true });
-          
-        // Get total restaurant count
-        const { count: restaurantCount, error: restaurantError } = await supabase
-          .from('restaurants')
-          .select('*', { count: 'exact', head: true });
-          
-        // Get active users
-        const { count: activeCount, error: activeError } = await supabase
-          .from('users')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'active');
-          
-        // Get vendor count
-        const { count: vendorCount, error: vendorError } = await supabase
-          .from('users')
-          .select('*', { count: 'exact', head: true })
-          .eq('role', 'vendor');
-          
-        setAdminStats({
-          totalUsers: userCount || 0,
-          totalRestaurants: restaurantCount || 0,
-          activeUsers: activeCount || 0,
-          totalVendors: vendorCount || 0
-        });
+        setIsLoading(true);
+        const stats = await dashboardAPI.getStats();
+        setAdminStats(stats);
       } catch (error) {
         console.error('Error fetching admin stats:', error);
+        // Set default values on error
+        setAdminStats({
+          system_health: { current: 0, change: '0%' },
+          restaurants: { total: 0, change: '0%' },
+          users: { total: 0, active: 0, change: '0%' },
+          vendors: { total: 0, change: '0%' },
+          last_updated: new Date().toISOString()
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
-    
+
     fetchAdminStats();
   }, []);
 
   // Admin stats cards
-  const stats = [
+  const stats = adminStats ? [
     {
       title: 'Total Users',
-      value: adminStats.totalUsers.toString(),
-      change: '+12%',
-      changeType: 'positive' as const,
+      value: adminStats.users.total.toString(),
+      change: adminStats.users.change,
+      changeType: adminStats.users.change.startsWith('+') ? 'positive' as const : 'negative' as const,
       icon: Users,
       color: 'primary'
     },
     {
       title: 'Active Restaurants',
-      value: adminStats.totalRestaurants.toString(),
-      change: '+8%',
-      changeType: 'positive' as const,
+      value: adminStats.restaurants.total.toString(),
+      change: adminStats.restaurants.change,
+      changeType: adminStats.restaurants.change.startsWith('+') ? 'positive' as const : 'negative' as const,
       icon: Store,
       color: 'secondary'
     },
     {
       title: 'Registered Vendors',
-      value: adminStats.totalVendors.toString(),
-      change: '+15%',
-      changeType: 'positive' as const,
+      value: adminStats.vendors.total.toString(),
+      change: adminStats.vendors.change,
+      changeType: adminStats.vendors.change.startsWith('+') ? 'positive' as const : 'negative' as const,
       icon: Package,
       color: 'accent'
     },
     {
       title: 'System Health',
-      value: '99.9%',
-      change: '+0.2%',
-      changeType: 'positive' as const,
+      value: `${adminStats.system_health.current}%`,
+      change: adminStats.system_health.change,
+      changeType: adminStats.system_health.change.startsWith('+') ? 'positive' as const : 'negative' as const,
       icon: CheckCircle,
       color: 'success'
     }
-  ];
+  ] : [];
 
   // Admin quick actions
   const quickActions = [
@@ -159,9 +140,35 @@ const AdminDashboard: React.FC = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <StatsCard key={index} {...stat} />
-        ))}
+        {isLoading ? (
+          // Loading skeleton
+          Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className={`p-6 rounded-xl animate-pulse ${
+              theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className={`h-4 w-20 rounded mb-2 ${
+                    theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                  }`}></div>
+                  <div className={`h-8 w-16 rounded mb-2 ${
+                    theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                  }`}></div>
+                  <div className={`h-3 w-12 rounded ${
+                    theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                  }`}></div>
+                </div>
+                <div className={`w-12 h-12 rounded-lg ${
+                  theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                }`}></div>
+              </div>
+            </div>
+          ))
+        ) : (
+          stats.map((stat, index) => (
+            <StatsCard key={index} {...stat} />
+          ))
+        )}
       </div>
 
       {/* Quick Actions and Alerts */}

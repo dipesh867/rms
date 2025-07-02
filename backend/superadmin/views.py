@@ -1,14 +1,20 @@
 import psutil
 from django.db import connections
 from django.db.utils import OperationalError
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework import generics
+from rest_framework import generics, status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
+from django.db import transaction
 from django.core.cache import cache
-from .models import Restaurant
+from django.utils import timezone
+from datetime import timedelta
+from .models import Restaurant, Employee
 from .serializers import RestaurantSerializer
-# from rest_framework.permissions import IsAuthenticated  # Uncomment if needed
-from superadmin.models import Employee,Restaurant
 
 
 @api_view(['GET'])
@@ -271,3 +277,245 @@ def dashboard_stats(request):
 class RestaurantCreateView(generics.CreateAPIView):
     queryset = Restaurant.objects.all()
     serializer_class = RestaurantSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        # Check if user is admin
+        if not self.request.user.is_authenticated:
+            raise PermissionDenied("Authentication required")
+
+        # Check if user is admin using Employee model
+        user_email = getattr(self.request.user, 'email', '')
+        if not user_email:
+            raise PermissionDenied("User email not found")
+
+        try:
+            employee = Employee.objects.get(email=user_email)
+            if employee.role != 'admin':
+                raise PermissionDenied("Only administrators can create restaurants")
+        except Employee.DoesNotExist:
+            raise PermissionDenied("User not found or not authorized")
+
+        # Create the restaurant
+        restaurant = serializer.save()
+
+        return restaurant
+
+
+# === AUTHENTICATION VIEWS ===
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_login(request):
+    """Admin login endpoint - only for administrators"""
+    try:
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response({
+                'error': 'Email and password are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if user exists and is admin
+        try:
+            user = User.objects.get(email=email, role='admin')
+        except User.DoesNotExist:
+            return Response({
+                'error': 'Invalid admin credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Check password
+        if not user.check_password(password):
+            return Response({
+                'error': 'Invalid admin credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Generate tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = refresh.access_token
+
+        # Update last login
+        user.last_login = timezone.now()
+        user.save()
+
+        return Response({
+            'message': 'Admin login successful',
+            'access_token': str(access_token),
+            'refresh_token': str(refresh),
+            'user': {
+                'id': user.pk,
+                'name': user.name,
+                'email': user.email,
+                'role': user.role,
+                'permissions': ['admin_dashboard', 'user_management', 'system_settings']
+            }
+        })
+
+    except Exception as e:
+        return Response({
+            'error': f'Login failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def owner_login(request):
+    """Owner login endpoint - only for restaurant owners"""
+    try:
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response({
+                'error': 'Email and password are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if user exists and is owner
+        try:
+            user = User.objects.get(email=email, role='owner')
+        except User.DoesNotExist:
+            return Response({
+                'error': 'Invalid owner credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Check password
+        if not user.check_password(password):
+            return Response({
+                'error': 'Invalid owner credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Generate tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = refresh.access_token
+
+        # Update last login
+        user.last_login = timezone.now()
+        user.save()
+
+        # Get restaurants owned by this user (assuming User model has restaurants relationship)
+        # For now, return empty list - this needs to be implemented based on your User model
+        restaurants = []
+
+        return Response({
+            'message': 'Owner login successful',
+            'access_token': str(access_token),
+            'refresh_token': str(refresh),
+            'user': {
+                'id': user.pk,
+                'name': user.name,
+                'email': user.email,
+                'role': user.role,
+                'restaurants': restaurants,
+                'permissions': ['owner_dashboard', 'restaurant_management', 'staff_management']
+            }
+        })
+
+    except Exception as e:
+        return Response({
+            'error': f'Login failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def staff_login(request):
+    """Staff login endpoint - for all staff members (manager, kitchen, staff)"""
+    try:
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response({
+                'error': 'Email and password are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if user exists and is staff/manager/kitchen
+        try:
+            user = User.objects.get(
+                email=email,
+                role__in=['staff', 'manager', 'kitchen']
+            )
+        except User.DoesNotExist:
+            return Response({
+                'error': 'Invalid staff credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Check password
+        if not user.check_password(password):
+            return Response({
+                'error': 'Invalid staff credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Generate tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = refresh.access_token
+
+        # Update last login
+        user.last_login = timezone.now()
+        user.save()
+
+        # Get restaurants for this staff member (empty for now)
+        restaurants = []
+
+        return Response({
+            'message': 'Staff login successful',
+            'access_token': str(access_token),
+            'refresh_token': str(refresh),
+            'user': {
+                'id': user.pk,
+                'name': user.name,
+                'email': user.email,
+                'role': user.role,
+                'restaurants': restaurants,
+                'permissions': [f'{user.role}_dashboard', 'restaurant_operations']
+            }
+        })
+
+    except Exception as e:
+        return Response({
+            'error': f'Login failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def logout(request):
+    """Logout endpoint"""
+    try:
+        refresh_token = request.data.get('refresh_token')
+        if refresh_token:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        return Response({'message': 'Logout successful'})
+    except Exception as e:
+        return Response({
+            'error': f'Logout failed: {str(e)}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+def verify_token(request):
+    """Verify token and get user info"""
+    try:
+        user = request.user
+        if not user.is_authenticated:
+            return Response({
+                'error': 'Token invalid or expired'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Get user info (user is already our custom User model)
+        return Response({
+            'valid': True,
+            'user': {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'role': user.role,
+                'restaurants': []  # Empty for now
+            }
+        })
+
+    except Exception as e:
+        return Response({
+            'error': f'Token verification failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

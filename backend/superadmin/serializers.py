@@ -1,18 +1,35 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from .models import (
+    # User, UserSession, LoginAttempt, Permission, RolePermission,  # Temporarily commented out
     Restaurant, Employee, DailyStats, MenuCategory, MenuItem,
     InventoryCategory, InventoryItem, Table, Chair, Customer,
     Order, OrderItem, Vendor, Staff, Notification, Expense, WasteEntry
 )
 
+# === USER & AUTHENTICATION SERIALIZERS ===
+# Temporarily commented out - depends on User model
+# All User-related serializers commented out for now
+
+
 class EmployeeSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=6)
     phone = serializers.CharField(required=False, allow_blank=True, default='')
+    restaurants = serializers.StringRelatedField(many=True, read_only=True)
+    restaurant_ids = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Restaurant.objects.all(),
+        source='restaurants', write_only=True, required=False
+    )
 
     class Meta:
         model = Employee
-        fields = ['name', 'email', 'phone', 'role', 'password']
+        fields = [
+            'id', 'name', 'email', 'phone', 'role', 'password',
+            'restaurants', 'restaurant_ids', 'created_at'
+        ]
+        extra_kwargs = {
+            'created_at': {'read_only': True}
+        }
 
 class RestaurantSerializer(serializers.ModelSerializer):
     owner = EmployeeSerializer(write_only=True)

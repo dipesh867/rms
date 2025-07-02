@@ -1,72 +1,108 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.conf import settings
+from django.contrib.auth.hashers import make_password
+from decimal import Decimal
 
 
-# class UserManager(BaseUserManager):
-#     def create_user(self, email, password=None, **extra_fields):
-#         if not email:
-#             raise ValueError("Email is required")
-#         email = self.normalize_email(email)
-#         user = self.model(email=email, **extra_fields)
-#         user.set_password(password)
-#         user.save(using=self._db)
-#         return user
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("Email is required")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
 
-#     def create_superuser(self, email, password=None, **extra_fields):
-#         extra_fields.setdefault('is_superuser', True)
-#         extra_fields.setdefault('is_staff', True)
-#         extra_fields.setdefault('status', 'active')
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('status', 'active')
+        extra_fields.setdefault('role', 'admin')
 
-#         if not extra_fields.get('is_superuser'):
-#             raise ValueError('Superuser must have is_superuser=True.')
-#         if not extra_fields.get('is_staff'):
-#             raise ValueError('Superuser must have is_staff=True.')
+        if not extra_fields.get('is_superuser'):
+            raise ValueError('Superuser must have is_superuser=True.')
+        if not extra_fields.get('is_staff'):
+            raise ValueError('Superuser must have is_staff=True.')
 
-#         return self.create_user(email, password, **extra_fields)
+        return self.create_user(email, password, **extra_fields)
 
 
+# Temporarily commented out to resolve conflicts - will implement later
 # class User(AbstractUser):
 #     ROLE_CHOICES = [
-#         ('admin', 'System Administrator'),   # Superuser from createsuperuser
-#         ('owner', 'Restaurant Owner'),       # Login via owner portal only
+#         ('admin', 'System Administrator'),
+#         ('owner', 'Restaurant Owner'),
 #         ('vendor', 'Vendor Partner'),
 #         ('kitchen', 'Kitchen Staff'),
-#         ('staff', 'Restaurant Staff'),       # Login via staff portal only
-#         ('manager', 'Restaurant Manager'),   # Login via manager portal only
+#         ('staff', 'Restaurant Staff'),
+#         ('manager', 'Restaurant Manager'),
 #     ]
+#     # ... rest of User model fields and methods
 
-#     DEPARTMENT_CHOICES = [
-#         ('IT', 'IT'),
-#         ('Support', 'Support'),
-#         ('Sales', 'Sales'),
-#         ('HR', 'Human Resources'),
-#         ('Finance', 'Finance'),
-#         ('Operations', 'Operations'),
-#         ('Management', 'Management'),
-#     ]
 
-#     STATUS_CHOICES = [
-#         ('active', 'Active'),
-#         ('inactive', 'Inactive'),
-#     ]
+# === AUTHENTICATION & SESSION MODELS ===
+# Temporarily commented out - depends on User model
+# class UserSession(models.Model):
+#     """Track user sessions for security"""
+#     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
+    session_key = models.CharField(max_length=40, unique=True)
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.TextField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
 
-#     username = None  # Remove username
-#     email = models.EmailField(unique=True)
-#     name = models.CharField(max_length=255, blank=True) 
-#     phone = models.CharField(max_length=10,null=True,blank=True)
-#     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-#     department = models.CharField(max_length=50, choices=DEPARTMENT_CHOICES, blank=True, null=True)
-#     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
-#     recent_activity = models.TextField(blank=True, null=True)
+    class Meta:
+        ordering = ['-last_activity']
 
-#     USERNAME_FIELD = 'email'
-#     REQUIRED_FIELDS = []  # Only asks for email + password in createsuperuser
+    def __str__(self):
+        return f"{self.user.email} - {self.ip_address}"
 
-#     objects = UserManager()
 
+class LoginAttempt(models.Model):
+    """Track login attempts for security"""
+    email = models.EmailField()
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.TextField()
+    success = models.BooleanField()
+    failure_reason = models.CharField(max_length=100, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        status = "Success" if self.success else f"Failed ({self.failure_reason})"
+        return f"{self.email} - {status} - {self.timestamp}"
+
+
+# === PERMISSION & ROLE MODELS ===
+class Permission(models.Model):
+    """Custom permissions for fine-grained access control"""
+    name = models.CharField(max_length=100, unique=True)
+    codename = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    module = models.CharField(max_length=50)  # e.g., 'menu', 'inventory', 'orders'
+
+    def __str__(self):
+        return f"{self.module}.{self.codename}"
+
+
+# Temporarily commented out - depends on User model
+# class RolePermission(models.Model):
+#     """Map roles to permissions"""
+#     role = models.CharField(max_length=20, choices=User.ROLE_CHOICES)
+#     permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
+#     restaurant = models.ForeignKey('Restaurant', on_delete=models.CASCADE, null=True, blank=True)
+#
+#     class Meta:
+#         unique_together = ['role', 'permission', 'restaurant']
+#
 #     def __str__(self):
-#         return f"{self.email} ({self.role})"
+#         restaurant_name = f" ({self.restaurant.name})" if self.restaurant else ""
+#         return f"{self.role} - {self.permission}{restaurant_name}"
     
 
 
@@ -206,9 +242,10 @@ class InventoryItem(models.Model):
     name = models.CharField(max_length=200)
     category = models.ForeignKey(InventoryCategory, on_delete=models.CASCADE, related_name='items')
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='inventory_items')
-    current_stock = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    min_stock = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    max_stock = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    from decimal import Decimal
+    current_stock = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    min_stock = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    max_stock = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     unit = models.CharField(max_length=20, choices=UNIT_CHOICES)
     cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     supplier = models.CharField(max_length=200, blank=True)
@@ -316,7 +353,8 @@ class Customer(models.Model):
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='customers')
     loyalty_points = models.IntegerField(default=0)
     total_orders = models.IntegerField(default=0)
-    total_spent = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    from decimal import Decimal
+    total_spent = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     last_visit = models.DateTimeField(null=True, blank=True)
     membership_tier = models.CharField(max_length=20, choices=MEMBERSHIP_CHOICES, default='bronze')
     preferred_payment_method = models.CharField(max_length=50, blank=True)
@@ -336,6 +374,7 @@ class Customer(models.Model):
 # === ORDER MANAGEMENT MODELS ===
 class Order(models.Model):
     """Orders placed by customers"""
+    id = models.AutoField(primary_key=True)
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('completed', 'Completed'),
@@ -364,11 +403,12 @@ class Order(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     order_type = models.CharField(max_length=20, choices=ORDER_TYPE_CHOICES, default='dine-in')
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    service_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    from decimal import Decimal
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    tax = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    service_charge = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, blank=True)
     waiter_assigned = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_orders')
     notes = models.TextField(blank=True)
@@ -383,7 +423,7 @@ class Order(models.Model):
 
     def calculate_total(self):
         """Calculate order total"""
-        self.subtotal = sum(item.quantity * item.unit_price for item in self.order_items.all())
+        self.subtotal = sum(item.quantity * item.unit_price for item in OrderItem.objects.filter(order=self))
         self.total = self.subtotal + self.tax + self.service_charge - self.discount
         self.save()
 
@@ -442,10 +482,11 @@ class Vendor(models.Model):
     phone = models.CharField(max_length=20)
     address = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending-approval')
-    rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+    from decimal import Decimal
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=Decimal('0.00'))
     total_orders = models.IntegerField(default=0)
-    revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    commission = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    revenue = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    commission = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'))
     delivery_radius = models.IntegerField(null=True, blank=True, help_text="Delivery radius in km")
     minimum_order = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -475,7 +516,7 @@ class Staff(models.Model):
     ]
 
     employee = models.OneToOneField(Employee, on_delete=models.CASCADE, related_name='staff_profile')
-    salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    salary = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     shift = models.CharField(max_length=20, choices=SHIFT_CHOICES, default='morning')
     hire_date = models.DateField()

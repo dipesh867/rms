@@ -41,8 +41,15 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
-    'superadmin'
+    'superadmin',
+    'owner_dashboard',
+    'kitchen_dashboard',
+    'staff_dashboard',
+    'vendor_dashboard',
 ]
+
+# Custom User Model - temporarily disabled due to migration conflicts
+# AUTH_USER_MODEL = 'superadmin.User'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
